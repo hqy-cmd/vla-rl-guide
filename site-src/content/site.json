@@ -1,0 +1,32 @@
+{
+  "title": "VLA 入门",
+  "subtitle": "看 · 想 · 动",
+  "fullTitle": "VLA + 强化学习入门：拆开 π0.7 看一遍",
+  "progressLabel": "入门",
+  "levels": [
+    {"id": 1, "slug": "see-act", "title": "从看到到动手", "status": "ready"},
+    {"id": 2, "slug": "patches", "title": "把图片切成小块", "status": "ready"},
+    {"id": 3, "slug": "chunks", "title": "一次规划一小段", "status": "ready"},
+    {"id": 4, "slug": "flow", "title": "从噪声里雕出动作", "status": "ready"},
+    {"id": 5, "slug": "prompt", "title": "给模型写一张便签", "status": "soon"},
+    {"id": 6, "slug": "il-rl", "title": "照着学，还是练着学", "status": "soon"},
+    {"id": 7, "slug": "value", "title": "给形势打分", "status": "soon"},
+    {"id": 8, "slug": "recap", "title": "RECAP：把好坏写进提示", "status": "soon"},
+    {"id": 9, "slug": "pi07", "title": "装回去：π0.7", "status": "soon"},
+    {"id": 10, "slug": "start", "title": "从这里出发", "status": "soon", "appendix": true}
+  ],
+  "soonText": "这一关还在制作中。",
+  "about": {
+    "title": "关于这个网站",
+    "text": "写给刚接触机器人学习的人：从 VLA 怎么把画面变成动作讲起，最后讲到 π0.7 和强化学习的关系。网页里的动画和算出来的数字都是玩具演示，标着“玩具数据”；原文数字都写了页码。",
+    "papers": [
+      "π0.7: a Steerable Generalist Robotic Foundation Model with Emergent Capabilities，Physical Intelligence，arXiv:2604.15483 v2",
+      "π*0.6: a VLA That Learns From Experience，Physical Intelligence，arXiv:2511.14759 v2"
+    ],
+    "pageNote": "“π0.7 p6”指上面 π0.7 论文 PDF 的第 6 页，其余同理。",
+    "credit": "版式参考 learn-arduino-red.vercel.app（Dilum Sanjaya）。",
+    "v3Link": "v3/index.html",
+    "v3Text": "旧版交互图（v3）"
+  },
+  "globalTokens": ["π0.7", "π*0.6", "π0.6", "π0.5", "π0", "Gemma3", "Gemma 3", "v2", "v3", "VLA"]
+}

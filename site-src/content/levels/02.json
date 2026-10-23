@@ -1,0 +1,45 @@
+{
+  "id": 2,
+  "slug": "patches",
+  "title": "把图片切成小块",
+  "stage": "2d",
+  "intro": "模型先把相机画面切成小方块，每块变成一串数字，叫 token。图像 token 和指令的文字 token 排成一队送进模型。",
+  "bullets": [
+    {"icon": "grid", "text": "方块越小，token 越多"},
+    {"icon": "link", "text": "每个 token 对应一块画面"},
+    {"icon": "text", "text": "指令也切成 token"}
+  ],
+  "callouts": [
+    {"target": "image", "title": "相机画面", "text": "先缩放到固定大小"},
+    {"target": "grid", "title": "切块", "text": "按网格切成小方块"},
+    {"target": "tokens", "title": "token 队列", "text": "一块一个，排成一列"},
+    {"target": "text_tokens", "title": "文字 token", "text": "指令切开后接在后面"}
+  ],
+  "controls": {
+    "title": "动手试试",
+    "items": [
+      {"type": "segmented", "id": "patch", "label": "方块大小", "options": ["大", "中", "小"]},
+      {"type": "readout", "id": "count", "label": "token 数", "toy": true},
+      {"type": "run", "label": "切块"}
+    ],
+    "task": "换一种方块大小，再把鼠标移到一个方块上"
+  },
+  "tabs": {
+    "original": [
+      "π0.7 的图像统一缩放到 448×448。（π0.7 Sec. VI-B，p6）",
+      "骨干初始化自 Gemma3 4B 视觉语言模型，其中视觉编码器 400M 参数。（π0.7 p3–4）",
+      "π0.7 原文没有写方块（patch）大小，所以本关不给这个数。",
+      "进阶·记忆：每路相机最多带 6 帧历史，间隔 1 秒，压缩到和单帧相同的 token 数。（π0.7 Sec. VI-B，p6）",
+      "进阶·谁能看见谁：图像 token 之间互相都能看；文字 token 只能看前面的；50 个动作 token 彼此都能看，也能看骨干的结果。（π0.7 Sec. VI-B，p6）"
+    ],
+    "simplify": [
+      "把图像切块再变成向量，是 ViT 类视觉编码器的通用做法，π0.7 原文没有展开这一步。",
+      "真实编码器在切块之后还有很多层 Transformer，这里只画切块和变成向量这一步。",
+      "画面、方块大小和 token 数都是玩具值。"
+    ],
+    "sources": [
+      "π0.7，arXiv:2604.15483 v2，p3–4、p6"
+    ]
+  },
+  "numbers": []
+}

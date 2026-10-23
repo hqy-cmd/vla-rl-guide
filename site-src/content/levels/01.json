@@ -1,0 +1,47 @@
+{
+  "id": 1,
+  "slug": "see-act",
+  "title": "从看到到动手",
+  "stage": "3d",
+  "intro": "机器人每一刻收到几路相机画面、一句指令和自己的关节角度，然后交出接下来一小段动作。做这件事的模型叫 VLA。",
+  "bullets": [
+    {"icon": "camera", "text": "最多 4 路相机一起看"},
+    {"icon": "chat", "text": "换一句指令，动作跟着换"},
+    {"icon": "loop", "text": "只做前一段，然后重算"}
+  ],
+  "callouts": [
+    {"target": "cam_front", "title": "前视相机", "text": "看整张桌面"},
+    {"target": "cam_wrist", "title": "腕部相机", "text": "装在手腕上，看夹爪附近"},
+    {"target": "instruction", "title": "指令", "text": "一句话说明要做什么"},
+    {"target": "joints", "title": "关节角度", "text": "手臂现在的姿势"},
+    {"target": "chunk", "title": "动作块", "text": "实心点执行，空心点重算"}
+  ],
+  "controls": {
+    "title": "动手试试",
+    "runningLabel": "运行中",
+    "items": [
+      {"type": "select", "id": "instruction", "label": "指令", "options": ["把杯子放到盘子上", "把布推到左边"]},
+      {"type": "run", "label": "运行"}
+    ],
+    "task": "选一句指令，点运行"
+  },
+  "tabs": {
+    "original": [
+      "输入：最多 4 路相机图像（前视、两路腕部、可选后视），每路可带历史帧；一句语言指令；机器人关节状态。（π0.7 Sec. III，p3；Sec. VI-B，p6）",
+      "输出：一个动作块，即未来一段时间的关节或末端指令。（π0.7 p3）",
+      "训练目标：给定观测和指令，让模型输出尽量接近数据里的动作，这叫模仿学习。（π0.7 式(1)，p3）",
+      "VLA 是 Vision-Language-Action 的缩写：视觉、语言、动作。"
+    ],
+    "simplify": [
+      "舞台上的机器人、桌面和轨迹是示意图，和论文里的机器人外形无关。",
+      "轨迹的点数是玩具值。π0.7 的动作块是 50 步（p6），第 3 关再讲。",
+      "两句指令对应的动作是事先画好的演示，网页里没有运行任何真实模型。"
+    ],
+    "sources": [
+      "π0.7，arXiv:2604.15483 v2，p3、p6"
+    ]
+  },
+  "numbers": [
+    {"text": "4", "source": "π0.7 p3、p6"}
+  ]
+}

@@ -1,1 +1,3 @@
 .DS_Store
+site-src/node_modules/
+site-src/dist/

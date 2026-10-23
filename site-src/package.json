@@ -1,0 +1,27 @@
+{
+  "name": "vla-rl-guide",
+  "version": "4.0.0-b3",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "check": "node scripts/check-content.mjs",
+    "build": "npm run check && vite build",
+    "deploy:local": "npm run build && node scripts/deploy.mjs",
+    "test:acceptance": "node scripts/acceptance.mjs",
+    "test:b2": "node scripts/acceptance-b2.mjs",
+    "test:b3": "node src/levels/flow-math.test.js && node scripts/acceptance-b3.mjs"
+  },
+  "dependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-semi-condensed": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "d3": "^7.9.0",
+    "d3-selection": "^3.0.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "vite": "^8.3.5"
+  }
+}

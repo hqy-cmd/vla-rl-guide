@@ -1,0 +1,51 @@
+{
+  "id": 4,
+  "slug": "flow",
+  "title": "从噪声里雕出动作",
+  "stage": "3d",
+  "intro": "绕开障碍可以走左边，也可以走右边。两种示范取平均，正好撞上障碍。flow matching 从噪声出发，一步步走到其中一边。",
+  "bullets": [
+    {"icon": "average", "text": "取平均：两种走法混成一种"},
+    {"icon": "dice", "text": "采样：每次落到一边"},
+    {"icon": "steps", "text": "步数太少，落点粗糙"}
+  ],
+  "callouts": [
+    {"target": "obstacle", "title": "障碍", "text": "动作不能穿过这里"},
+    {"target": "left", "title": "左绕", "text": "一种合理走法"},
+    {"target": "right", "title": "右绕", "text": "另一种合理走法"},
+    {"target": "noise", "title": "噪声", "text": "每次采样的起点"},
+    {"target": "average", "title": "取平均", "text": "落在两种走法中间"}
+  ],
+  "controls": {
+    "title": "动手试试",
+    "items": [
+      {"type": "slider", "id": "steps", "label": "去噪步数", "min": 1, "max": 20, "step": 1, "default": 5, "unit": "步"},
+      {"type": "button", "id": "average", "label": "取平均"},
+      {"type": "run", "label": "采样"}
+    ],
+    "task": "先点取平均，再采样几次"
+  },
+  "tabs": {
+    "original": [
+      "flow matching 能表示多种不同的合理做法，避免把它们平均成一个不合理的动作。（π0.7 p3）",
+      "π0.7 推理时用 5 步去噪生成 50 步动作块。（π0.7 Sec. VII，p7）",
+      "动作专家约 860M 参数。（π0.7 p3–4）",
+      "π0.7 同时用两种动作写法：骨干学离散的 FAST token，动作专家用 flow matching 输出连续动作。（π0.7 p3）",
+      "知识隔离：动作专家读取骨干的全部结果，但训练时梯度不传回骨干，用来保护骨干从网络数据里学到的知识。（π0.7 p3）"
+    ],
+    "simplify": [
+      "舞台上一个点代表一整段动作；真实的动作块是 50 步 × 多个关节。",
+      "速度场按两峰高斯混合的公式直接算出，没有训练网络。点群和落点都是玩具数据。",
+      "去噪步数滑块的范围 1–20 是为了演示，默认 5 取自 π0.7 p7。"
+    ],
+    "sources": [
+      "π0.7，arXiv:2604.15483 v2，p3–4、p7",
+      "Lipman et al.，Flow Matching for Generative Modeling，arXiv:2210.02747"
+    ]
+  },
+  "numbers": [
+    {"text": "5", "source": "π0.7 p7"},
+    {"text": "1", "source": "玩具滑块下限"},
+    {"text": "20", "source": "玩具滑块上限"}
+  ]
+}

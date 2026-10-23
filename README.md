@@ -1,26 +1,29 @@
-# VLA + 强化学习 · 学习指南配套交互图
+# VLA + 强化学习入门
 
-在线访问：<https://hqy-cmd.github.io/vla-rl-guide/>
+用短文案和交互演示拆开 VLA 的“看、想、动”，逐步理解 π0.7 与强化学习。目前完成新版第 3 批：第 1 关两种 3D 任务；第 2 关相机画面切块与 token 队列；第 3 关动作块的等待、直接切换和 RTC 近似；第 4 关双峰 flow matching 采样。前四关均有对应画面的本地缩略图，其余关卡制作中。
 
-配合「VLA + 强化学习」学习指南 PPT 自学用的 4 个交互网页，以 π0.7 为例：
+线上地址：<https://hqy-cmd.github.io/vla-rl-guide/>。旧版交互图保存在 [v3/](v3/index.html)，原来的四个页面链接仍可跳转，保留锚点。
 
-| 页面 | 内容 | 所用库 |
-|---|---|---|
-| [图 1 图像怎样变成 token](https://hqy-cmd.github.io/vla-rl-guide/w1_patch_embedding.html) | 图像切块、提特征、投影成向量 | TensorSpace / three.js |
-| [图 4 从噪声出发，走向两种可行动作](https://hqy-cmd.github.io/vla-rl-guide/w4_flow_matching.html) | flow matching 去噪与速度场 | three.js / D3 |
-| [图 5 动作接着执行，推理同时进行](https://hqy-cmd.github.io/vla-rl-guide/w5_action_chunk_rtc.html) | 动作块、同步 / 朴素异步 / RTC 式交接 | D3 |
-| [图 6 离成功还差多远，这一段走得怎样](https://hqy-cmd.github.io/vla-rl-guide/w6_value_advantage.html) | 价值、优势与训练标签 | D3 |
+本地开发（Node.js 22.12+，建议当前 LTS）：
 
-## 说明
+```sh
+cd site-src
+npm i
+npm run dev
+npm run check
+npm run deploy:local
+```
 
-- 图中数据为示意，用来说明机制；标注页码的参数取自原文，出处见各页脚注。
-- 参考文献：
-  [1] Physical Intelligence et al., "π0.7: a Steerable Generalist Robotic Foundation Model with Emergent Capabilities", arXiv:2604.15483v2.
-  [2] Physical Intelligence et al., "π\*0.6: a VLA That Learns From Experience", arXiv:2511.14759v2.
-- 纯静态页面，所有脚本和字体都在 `vendor/`，不请求外部资源。下载仓库后直接双击 `index.html` 也可离线打开。
-- 国内网络访问 github.io 可能不稳定，打不开时可下载本仓库（Code → Download ZIP）离线使用。
+`npm run build` 检查文案并生成 `site-src/dist/`。`npm run deploy:local` 再将产物复制到根目录，生成仓库旁的 `vla-rl-guide-offline.zip`，不执行 Git 提交或推送。解压后双击 `index.html` 即可离线打开，也可直接双击仓库根目录的 `index.html`。
 
-## 第三方资源
+源码为 Vite + 原生 JS，JSON 文案在 `site-src/content/`，构建时打包进一个普通 IIFE 脚本。字体与资源均在本地，生产 CSP 沿用指定策略，无需额外放宽。开发服务器仅为 Vite 热更新额外允许本机 WebSocket，不进入生产产物。进度存于 `vla-guide:done`；存储不可用时仅在当前页面内保留。前四关均在运行结束时记录进度；第 4 关单独点击取平均不计入完成。舞台通过 `mount(levelId, container)`、`unmount()`、`getAnchors()`、`onControl(id, value)` 对接，3D 模块另提供 `project()` 和按帧订阅，控件事件经过 `src/bus.js`。
 
-- D3 v7（ISC）、three.js（MIT）、TensorSpace（Apache-2.0）、TensorFlow.js（Apache-2.0）、tween.js（MIT）。
-- 字体：Noto Serif / Sans CJK SC、Source Serif、Source Sans，均为 SIL Open Font License 1.1，已按页面用字子集化，许可文本见 `vendor/fonts/OFL-*.txt`。
+第 1、3、4 关模块导出 `buildThumbScene()`，返回独立拥有资源的 `scene`、`bounds` 和可选 `fitPoints`。第 2 关导出 `drawThumb(ctx)`；其相机帧由第 1 关场景离屏渲染一次后释放资源。第 3、4 关复用桌子、机械臂、解析 IK、轨迹点与按需渲染；缩略图管线生成 PNG 后释放资源。共享零件与解析 IK 在 `site-src/src/stage3d/parts.js`。three.js r186 已移除 PCFSoftShadowMap，本版使用受支持的 PCFShadowMap 滤波路径。WebGL 不可用时改用 Canvas 平面图，四关交互仍可运行。
+
+可重复浏览器验收：`cd site-src && npm run test:acceptance`；第 1 关 3D 与任务专项为 `npm run test:b2`，第 2–4 关专项为 `npm run test:b3`（先 `npm run deploy:local`）。数学测试可单独执行 `node src/levels/flow-math.test.js`。需要本机 Google Chrome 或设置 `CHROME_PATH`；截图与验收报告写入仓库旁的 `vla-rl-guide-shots/`。
+
+第 4 关采用等权双峰高斯玩具分布，中心为 `(−1.5, 1)` / `(1.5, 1)`，`σ = 0.15`。`src/levels/flow-math.js` 给出线性路径、解析 GMM 后验条件速度与 Euler 更新。单元测试使用三组固定种子、每组 10,000 点，检查 20 步结果超过 90% 位于任一峰的欧氏半径 `2σ` 内。1 步 Euler 的结果严格退化为两峰均值，所以该步数下高亮轨迹也会撞到障碍并停住；不对落点做避障投影或重新采样。
+
+字体采用 SIL Open Font License（OFL）：Barlow、Barlow Semi Condensed、JetBrains Mono、Noto Sans CJK（中文使用 Noto Sans SC 子集）。许可证保存在 `fonts/OFL-*.txt`；旧版字体许可证在 `v3/vendor/fonts/`。
+
+版式参考：[learn-arduino-red.vercel.app](https://learn-arduino-red.vercel.app/)（Dilum Sanjaya）。本站图标、布局实现与样式独立编写。
