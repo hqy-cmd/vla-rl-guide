@@ -29,7 +29,7 @@ export function frameCamera(camera, bounds, width, height, angle = Math.PI / 4, 
   const top = padding.top || 0, bottom = padding.bottom || 0;
   const side = padding.side || 0;
   const focus = Array.isArray(bounds) ? v(0, 1.55, .1) : bounds.getCenter(new Vector3());
-  const elevation = Math.PI / 6, distance = 12;
+  const elevation = padding.elevation ?? Math.PI / 6, distance = 12;
   camera.position.copy(focus).add(v(Math.sin(angle) * Math.cos(elevation), Math.sin(elevation), Math.cos(angle) * Math.cos(elevation)).multiplyScalar(distance));
   camera.lookAt(focus);
   const aspect = width / height;
@@ -111,8 +111,8 @@ export function mountStage3D(surface, buildLevel, options) {
       ctx.beginPath();ctx.ellipse(p.x,p.y,size,size*.55,0,0,Math.PI*2);ctx.fill();ctx.stroke();
     }
     for(const point of model.trajectory.points) if(point.visible) {
-      const p=flatProject(point.position);ctx.globalAlpha=point.material.opacity;ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);
-      ctx.strokeStyle=ctx.fillStyle='#1aa3a1';point.geometry.type==='SphereGeometry'?ctx.fill():ctx.stroke();
+      const p=flatProject(point.position);ctx.globalAlpha=point.material.opacity;ctx.beginPath();ctx.arc(p.x,p.y,5.5,0,Math.PI*2);
+      ctx.fillStyle=point.userData.hollow?'#fff':'#1aa3a1';ctx.fill();ctx.strokeStyle=point.userData.hollow?'#1aa3a1':'#3a3f4a';ctx.lineWidth=point.userData.hollow?2:1;ctx.stroke();
     }
     ctx.globalAlpha=1;
     for(const obj of [model.front.housing, model.arm.wristCam.housing]) {
@@ -124,7 +124,7 @@ export function mountStage3D(surface, buildLevel, options) {
   function render(now) {
     frame = 0;
     if (disposed || document.hidden) return;
-    const dt = previous ? Math.min(.05, (now - previous) / 1000) : 0;
+    const dt = previous ? (now - previous) / 1000 : 0;
     previous = now;
     const animating = model.update(dt);
     let returning = false;
@@ -133,6 +133,16 @@ export function mountStage3D(surface, buildLevel, options) {
       fit(); returning = angle !== 0;
     }
     model.scene.updateMatrixWorld(true);
+    // Orthographic world units per CSS pixel. Size does not depend on devicePixelRatio.
+    const pixelUnit = (camera.top - camera.bottom) / camera.zoom / height;
+    model.scene.traverse(node => {
+      if (node.userData.pixelSize) node.scale.set(node.userData.pixelSize * pixelUnit,
+        (node.userData.pixelHeight || node.userData.pixelSize) * pixelUnit, 1);
+      if (node.material?.userData.pointPixels) {
+        node.material.uniforms.diameter.value = node.material.userData.pointPixels * (renderer?.getPixelRatio() || 1);
+        node.material.uniforms.fade.value = node.material.opacity;
+      }
+    });
     if (renderer) {
       model.arm.indicator.quaternion.copy(camera.quaternion);
       renderer.setScissorTest(false); renderer.setViewport(0,0,width,height);

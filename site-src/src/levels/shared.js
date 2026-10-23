@@ -1,14 +1,25 @@
-import {Scene,Box3,HemisphereLight,DirectionalLight,BufferGeometry,Line,LineBasicMaterial,LineDashedMaterial} from 'three';
+import {Scene,Box3,HemisphereLight,DirectionalLight} from 'three';
 import {createKit,createTable,createArm,createTrajectory,getFitPoints,v} from '../stage3d/parts.js';
+import {Line2} from 'three/addons/lines/Line2.js';
+import {LineGeometry} from 'three/addons/lines/LineGeometry.js';
+import {LineMaterial} from 'three/addons/lines/LineMaterial.js';
 export {v};
-export function line(points,color,{dashed=false,opacity=1}={}) {
-  const material=dashed?new LineDashedMaterial({color,dashSize:.09,gapSize:.065,transparent:true,opacity}):new LineBasicMaterial({color,transparent:true,opacity});
-  const node=new Line(new BufferGeometry().setFromPoints(points),material);
-  if(dashed)node.computeLineDistances();return node;
+export function line(points,color,{dashed=false,opacity=1,width=2.5,overlay=false}={}) {
+  const material=new LineMaterial({color,linewidth:width,dashed,dashSize:.11,gapSize:.075,
+    transparent:true,opacity,depthTest:!overlay,depthWrite:false});
+  const node=new Line2(new LineGeometry().setPositions(points.flatMap(p=>p.toArray())),material);
+  node.computeLineDistances();node.renderOrder=overlay?8:1;return node;
 }
 export function replaceLine(node,points) {
-  node.geometry.dispose();node.geometry=new BufferGeometry().setFromPoints(points.length>1?points:[v(0,1,0),v(0,1,0)]);
-  if(node.material.isLineDashedMaterial)node.computeLineDistances();
+  // The renderer caches an instanced geometry's maximum instance count on first draw.
+  // A growing path needs fresh geometry or only its original first segment is drawn.
+  node.geometry.dispose();
+  node.geometry=new LineGeometry().setPositions((points.length>1?points:[v(0,1,0),v(0,1,0)]).flatMap(p=>p.toArray()));
+  node.computeLineDistances();
+}
+export function placeArm(arm,position) {
+  arm.root.position.copy(position);const moveLocal=arm.moveTo;
+  arm.moveTo=point=>{moveLocal(point.clone().sub(arm.root.position));arm.tip.copy(point);};
 }
 export function baseScene() {
   const scene=new Scene(),kit=createKit(),arm=createArm(kit),table=createTable(kit);

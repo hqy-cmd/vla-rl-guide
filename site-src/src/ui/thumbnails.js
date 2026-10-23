@@ -1,13 +1,10 @@
-import { OrthographicCamera, WebGLRenderTarget, SRGBColorSpace } from 'three';
-import { drawThumb as l2 } from '../levels/l2.js';
-import { buildThumbScene as l1 } from '../levels/l1.js';
-import { buildThumbScene as l3 } from '../levels/l3.js';
-import { buildThumbScene as l4 } from '../levels/l4.js';
-import { createRenderer, frameCamera } from '../stage3d/index.js';
-import { disposeScene } from '../stage3d/parts.js';
-
-const builders = new Map([[1,l1],[3,l3],[4,l4]]);
-const idle = callback => window.requestIdleCallback ? requestIdleCallback(callback,{timeout:1800}) : setTimeout(callback,100);
+import {drawThumb as l2,pictureReady} from '../levels/l2.js';
+import thumb1 from '../assets/level-1-thumb.png';
+import thumb3 from '../assets/level-3-thumb.png';
+import thumb4 from '../assets/level-4-thumb.png';
+// Scene previews are baked from the same scene builders. Avoid GPU readback stalls at startup.
+const previews=new Map([[1,thumb1],[3,thumb3],[4,thumb4]]);
+const idle=callback=>window.requestIdleCallback?requestIdleCallback(callback,{timeout:1800}):setTimeout(callback,100);
 function draw2D(canvas,id) {
   canvas.width=192;canvas.height=144;
   const c=canvas.getContext('2d');c.fillStyle='#f6eddd';c.fillRect(0,0,192,144);
@@ -25,48 +22,15 @@ function draw2D(canvas,id) {
 export function scheduleThumbnails(cards) {
   const urls=[];
   idle(async()=>{
-    let renderer, target;
-    try {
-      for(const [id,card] of cards) {
-        await new Promise(resolve=>idle(resolve));
-        try {
-        if(builders.has(id)) {
-          if(renderer===undefined){renderer=createRenderer(document.createElement('canvas'));
-            if(renderer){target=new WebGLRenderTarget(192,144,{samples:4});target.texture.colorSpace=SRGBColorSpace;}
-            renderer?.setPixelRatio(1);renderer?.setSize(192,144,false);}
-          if(!renderer)continue;
-          let model;
-          try{
-            model=builders.get(id)();
-            const camera=new OrthographicCamera(-5,5,5,-5,.1,50);
-            frameCamera(camera,model.fitPoints || model.bounds,192,144);
-            renderer.setRenderTarget(target);
-            renderer.setClearColor('#f6eddd',1);renderer.render(model.scene,camera);
-            const pixels=new Uint8Array(192*144*4);
-            await renderer.readRenderTargetPixelsAsync(target,0,0,192,144,pixels);
-            renderer.setRenderTarget(null);
-            const canvas=document.createElement('canvas');canvas.width=192;canvas.height=144;
-            const data=new Uint8ClampedArray(pixels.length);
-            // WebGL reads bottom-up; Canvas ImageData is top-down.
-            for(let y=0;y<144;y++)data.set(pixels.subarray((143-y)*192*4,(144-y)*192*4),y*192*4);
-            canvas.getContext('2d').putImageData(new ImageData(data,192,144),0,0);
-            const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
-            if(blob)install(card,blob);
-          }finally{if(model)disposeScene(model.scene);}
-        }else{
-          const canvas=document.createElement('canvas');draw2D(canvas,id);
-          const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
-          if(blob)install(card,blob);
-        }
-        } catch { renderer?.setRenderTarget(null); /* Keep this card's placeholder and continue. */ }
-      }
-    }catch{/* Keep placeholders when rendering or encoding is unavailable. */}
-    finally{target?.dispose();renderer?.dispose();renderer?.forceContextLoss();}
+    await pictureReady;
+    for(const [id,card] of cards){
+      await new Promise(resolve=>idle(resolve));
+      if(previews.has(id)){install(card,previews.get(id));continue;}
+      const canvas=document.createElement('canvas');draw2D(canvas,id);
+      const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+      if(blob){const url=URL.createObjectURL(blob);urls.push(url);install(card,url);}
+    }
   });
-  function install(card,blob){
-    const url=URL.createObjectURL(blob);urls.push(url);
-    const img=new Image();img.alt='';
-    img.onload=()=>{card.querySelector('.thumbnail').replaceChildren(img);};img.src=url;
-  }
+  function install(card,url){const img=new Image();img.alt='';img.onload=()=>card.querySelector('.thumbnail').replaceChildren(img);img.src=url;}
   window.addEventListener('pagehide',()=>urls.forEach(url=>URL.revokeObjectURL(url)),{once:true});
 }

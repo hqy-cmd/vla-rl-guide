@@ -1,5 +1,6 @@
-import {Box3,Group,Mesh,SphereGeometry,MeshBasicMaterial} from 'three';
-import {baseScene,line,replaceLine,elementRect,v} from './shared.js';
+import {Box3,Group} from 'three';
+import {baseScene,line,replaceLine,elementRect,placeArm,v} from './shared.js';
+import {createDot} from '../stage3d/parts.js';
 import {el} from '../ui/dom.js';
 const TOTAL=150;
 const target=t=>{const u=Math.min(1,Math.max(0,t/TOTAL));return v(-1.9+3.8*u,1.045,.65*Math.sin(2*Math.PI*u)+.27);};
@@ -48,7 +49,9 @@ export function simulate(mode='停下等',d=8,H=25) {
 }
 function buildScene() {
   const m=baseScene(),goal=Array.from({length:151},(_,i)=>target(i));
-  m.scene.add(line(goal,'#b2aba1',{dashed:true,opacity:.8}));
+  m.padding={top:94,bottom:108,side:110,elevation:.78};m.angle=.04;
+  placeArm(m.arm,v(-.65,0,-.55));
+  m.scene.add(line(goal,'#736b60',{dashed:true,width:3}));
   m.arm.moveTo(target(0));m.goal=goal;return m.finishFit();
 }
 export function buildThumbScene(){
@@ -57,14 +60,14 @@ export function buildThumbScene(){
 }
 export function mountLevel({surface,content,onBusy,onComplete,invalidate}) {
   const model=buildScene(),{scene,arm,trajectory}=model;
-  const ink=line([target(0),target(0)],'#3d7396');scene.add(ink);
+  const ink=line([target(0),target(0)],'#3d7396',{width:4,overlay:true});scene.add(ink);
   const markers=new Group();scene.add(markers);
   const timeline=el('div','chunk-timeline');
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('aria-label',content.callouts[0].title);timeline.append(svg);surface.append(timeline);
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
-  let mode=content.controls.items[0].options[0],d=8,H=25,result,clock=0,step=0,running=false,trail=[],seamPoint=target(25),pointer,chunkRects=[],thinkingRects=[];
+  let mode=content.controls.items[0].options[0],d=8,H=25,result,clock=0,startedAt=0,step=0,running=false,trail=[],seamPoint=target(25),pointer,chunkRects=[],thinkingRects=[];
   const drawSvg=(tag,attrs,parent=svg)=>{const node=document.createElementNS(svg.namespaceURI,tag);Object.entries(attrs).forEach(([key,value])=>node.setAttribute(key,value));parent.append(node);return node;};
-  function clearMarkers(){for(const child of [...markers.children]){child.geometry.dispose();child.material.dispose();markers.remove(child);}}
+  function clearMarkers(){for(const child of [...markers.children]){child.geometry?.dispose();child.material.map?.dispose();child.material.dispose();markers.remove(child);}}
   function buildTimeline(){
     svg.replaceChildren();svg.setAttribute('viewBox','0 0 1000 70');svg.setAttribute('preserveAspectRatio','none');
     const defs=drawSvg('defs',{}),pattern=drawSvg('pattern',{id:'thinking-hatch',patternUnits:'userSpaceOnUse',width:6,height:6},defs);
@@ -96,34 +99,36 @@ export function mountLevel({surface,content,onBusy,onComplete,invalidate}) {
     surface.dataset.maxJump=String(Math.max(0,...result.seams.map(s=>s.jump)));invalidate();
   }
   function mark(i){
-    const f=result.frames[i];trail.push(f.p);trajectory.mark(f.p);
-    if(f.waiting){const dot=new Mesh(new SphereGeometry(.026,8,6),new MeshBasicMaterial({color:'#3d7396'}));
-      dot.position.copy(f.p).add(v(Math.sin(i*2.4)*.045,.01,Math.cos(i*2.4)*.045));markers.add(dot);}
+    const f=result.frames[i];trail.push(f.p);
+    if(f.waiting){const dot=createDot('#3d7396',8);
+      const pauseIndex=result.frames.slice(0,i).filter(frame=>frame.waiting&&frame.q===f.q).length;
+      dot.position.copy(f.p).add(v((pauseIndex%3-1)*.1,.025,Math.floor(pauseIndex/3)*.10));markers.add(dot);}
     if(f.seam){
       const s=result.seams.find(s=>s.time===i);seamPoint=f.p.clone();
-      if(mode==='直接换'&&d>0){markers.add(line([s.from,s.to],'#a9553f'));
-        const a=f.p.clone().add(v(-.07,.017,-.07)),b=f.p.clone().add(v(.07,.017,.07)),c=f.p.clone().add(v(-.07,.017,.07)),e=f.p.clone().add(v(.07,.017,-.07));
-        markers.add(line([a,b],'#a9553f'),line([c,e],'#a9553f'));}
+      if(mode==='直接换'&&d>0){markers.add(line([s.from,s.to],'#a9553f',{width:6,overlay:true}));
+        const a=f.p.clone().add(v(-.13,.035,-.13)),b=f.p.clone().add(v(.13,.035,.13)),c=f.p.clone().add(v(-.13,.035,.13)),e=f.p.clone().add(v(.13,.035,-.13));
+        markers.add(line([a,b],'#a9553f',{width:3.5,overlay:true}),line([c,e],'#a9553f',{width:3.5,overlay:true}));}
     }
   }
   function apply(index,fraction=0){
     const f=result.frames[index],next=result.frames[Math.min(index+1,result.frames.length-1)];
     // Direct switching stays discontinuous; all other movement interpolates.
     arm.moveTo(f.p.clone().lerp(next.p,mode==='直接换'&&next.seam?0:fraction));
-    trajectory.points.forEach((point,i)=>{point.visible=running&&i<f.preview.length; if(point.visible){point.position.copy(f.preview[i]);point.material.color.copy(ink.material.color);point.material.opacity=.65;}});
+    trajectory.points.forEach((point,i)=>{point.visible=running&&i<f.preview.length; if(point.visible){point.position.copy(f.preview[i]).add(v(0,.06,0));point.material.opacity=.65;}});
     const x=20+(index+fraction)*Number(svg.dataset.scale);pointer.setAttribute('d',`M${x} 8V65`);
     surface.dataset.step=String(index);
   }
   function finish(){running=false;trajectory.points.forEach(p=>p.visible=false);surface.dataset.state='complete';onBusy(false);onComplete();invalidate();}
   reset();
-  model.flatPaths=()=>[{points:model.goal,color:'#b2aba1',dashed:true},{points:trail,color:ink.material.color.getStyle()}];
+  model.flatPaths=()=>[{points:model.goal,color:'#736b60',dashed:true},{points:trail,color:ink.material.color.getStyle(),width:4}];
   model.flatMarkers=()=>trajectory.points.filter(p=>p.visible).map(p=>({p:p.position,color:ink.material.color.getStyle(),r:2}));
   return {...model,
     control(id,value){if(running)return;if(id==='mode')mode=value;if(id==='delay')d=Number(value);if(id==='hat')H=parseInt(value,10);
-      if(id!=='run')reset();else {reset();running=true;surface.dataset.state='running';onBusy(true);invalidate();}},
-    update(dt){if(!running)return false;clock+=dt;
+      if(id!=='run')reset();else {reset();running=true;startedAt=performance.now();surface.dataset.state='running';onBusy(true);invalidate();}},
+    update(dt){if(!running)return false;clock=(performance.now()-startedAt)/1000;
       const position=reduced.matches?result.frames.length-1:Math.min(result.frames.length-1,clock/7.2*(result.frames.length-1));
-      const index=Math.floor(position);while(step<=index){mark(step++);}replaceLine(ink,trail);apply(index,position-index);
+      const index=Math.floor(position),previousStep=step;while(step<=index){mark(step++);}
+      if(previousStep!==step)replaceLine(ink,trail);apply(index,position-index);
       if(index===result.frames.length-1)finish();return running;},
     getAnchors(project){
       const width=timeline.clientWidth,height=surface.clientHeight,r=chunkRects[result.frames[Math.min(step,result.frames.length-1)].chunk]||chunkRects[0];

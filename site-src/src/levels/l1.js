@@ -48,7 +48,7 @@ export function mountLevel({ surface, content, onBusy, onComplete, invalidate })
   const idle = v(.15, 2.05, .25);
   let running = false, clock = 0, step = 0, blockStart = 0, plan = [], block = [], serial = 0;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  let finishAt = 0, blockOrigin;
+  let finishAt = 0, blockOrigin, startedAt = 0;
 
   function reset() {
     cup.position.copy(initialCup); cloth.position.copy(initialCloth);
@@ -106,7 +106,7 @@ export function mountLevel({ surface, content, onBusy, onComplete, invalidate })
       return {...frame, p: point};
     });
     trajectory.points.forEach((point, i) => {
-      point.position.copy(block[i].p); point.visible = true; point.material.opacity = 1;
+      point.position.copy(block[i].p).add(v(0, .08, 0)); point.visible = true; point.material.opacity = 1;
     });
     surface.dataset.replans = String(serial);
   }
@@ -140,13 +140,13 @@ export function mountLevel({ surface, content, onBusy, onComplete, invalidate })
         selected = value; instruction.textContent = selected; reset(); preview(); invalidate();
       }
       if (id === 'run') {
-        reset(); makePlan(); running = true; finishAt = .8 + (plan.length - 1) * .095;
-        surface.dataset.state = 'running'; onBusy(true); invalidate();
+        reset(); makePlan(); running = true; clock = 0; finishAt = .8 + (plan.length - 1) * .085;
+        startedAt = performance.now(); surface.dataset.state = 'running'; onBusy(true); invalidate();
       }
     },
     update(dt) {
       if (!running) return false;
-      clock += dt;
+      clock = (performance.now() - startedAt) / 1000;
       if (reduced.matches) {
         // A short sequence of task keyframes keeps the action readable, without interpolated motion.
         const index = Math.min(plan.length - 1, Math.floor(clock / .15) * 12);
@@ -168,7 +168,7 @@ export function mountLevel({ surface, content, onBusy, onComplete, invalidate })
       front.frustum.material.opacity = arm.wristCam.frustum.material.opacity = .3;
       arm.indicator.material.opacity = 0;
       if (!step && !blockStart) { chunk(); blockStart = -1; }
-      const position = Math.min(plan.length - 1, (clock - .8) / .095);
+      const position = Math.min(plan.length - 1, (clock - .8) / .085);
       const nextStep = Math.floor(position);
       while (step < nextStep) {
         apply(block[step % 4]);

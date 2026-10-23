@@ -1,26 +1,16 @@
-import {buildScene} from './l1.js';
-import {createRenderer} from '../stage3d/index.js';
-import {disposeScene,v} from '../stage3d/parts.js';
+import frontPictureUrl from '../assets/front-camera.png?inline';
 import {el} from '../ui/dom.js';
 let picture;
+const pictureListeners=new Set();
+const frontImage=new Image();frontImage.src=frontPictureUrl;
+export const pictureReady=frontImage.decode();
 function cameraPicture() {
   if(picture)return picture;
   const source=document.createElement('canvas');source.width=source.height=336;
   const ctx=source.getContext('2d',{willReadFrequently:true});
-  // Read a single front-camera frame, then release the entire temporary WebGL scene.
-  const canvas=document.createElement('canvas'),renderer=createRenderer(canvas,{preserveDrawingBuffer:true});
-  let model;
-  try {
-    if(renderer){
-      model=buildScene();model.front.frustum.visible=false;model.arm.wristCam.frustum.visible=false;
-      model.front.root.position.set(2.35,.6,3.6);model.front.aimAt(v(0,1.35,0));
-      const camera=model.front.camera;camera.aspect=1;camera.fov=68;camera.updateProjectionMatrix();
-      renderer.setPixelRatio(1);renderer.setSize(336,336,false);renderer.setClearColor('#f6eddd',1);
-      renderer.render(model.scene,camera);ctx.drawImage(canvas,0,0);
-    }else drawCameraFallback(ctx,336);
-  }finally{if(model)disposeScene(model.scene);renderer?.dispose();renderer?.forceContextLoss();}
-  // Canvas is an image source too; retaining it makes average-colour sampling synchronous.
-  picture=source;return picture;
+  if(frontImage.complete&&frontImage.naturalWidth)ctx.drawImage(frontImage,0,0);else drawCameraFallback(ctx,336);picture=source;
+  pictureReady.then(()=>{ctx.clearRect(0,0,336,336);ctx.drawImage(frontImage,0,0);pictureListeners.forEach(fn=>fn());});
+  return picture;
 }
 function drawCameraFallback(ctx,size) {
   ctx.save();ctx.scale(size/336,size/336);ctx.fillStyle='#f6eddd';ctx.fillRect(0,0,336,336);
@@ -36,12 +26,12 @@ function words(instruction) {
   if(instruction==='把布推到左边')return ['把','布','推到','左边'];
   return [...new Intl.Segmenter('zh',{granularity:'word'}).segment(instruction)].map(s=>s.segment);
 }
-function miniVector(ctx,rect,color,index,active=false) {
+function miniVector(ctx,rect,color,index,active=false,brightness=null) {
   const {x,y,width:w,height:h}=rect;
-  ctx.fillStyle=active?'#1aa3a120':'#fffcf6';ctx.strokeStyle=active?'#1aa3a1':color;ctx.lineWidth=active?2.5:1;
-  ctx.beginPath();ctx.roundRect(x,y,w,h,Math.min(4,w/6));ctx.fill();ctx.stroke();ctx.fillStyle=color;
+  ctx.fillStyle=color;ctx.strokeStyle=active?'#145e64':'#565d63';ctx.lineWidth=active?3:1;
+  ctx.beginPath();ctx.roundRect(x,y,w,h,Math.min(4,w/6));ctx.fill();ctx.stroke();ctx.fillStyle='#18213dcc';
   for(let j=0;j<5;j++){
-    const bar=h*(.2+.6*(.5+.5*Math.sin(index*1.71+j*2.43)));
+    const bar=h*(.15+.68*(brightness?.[j]??(.5+.5*Math.sin(index*1.71+j*2.43))));
     ctx.fillRect(x+w*(.14+j*.15),y+(h-bar)/2,Math.max(1,w*.08),bar);
   }
 }
@@ -56,7 +46,7 @@ export function mountLevel({surface,content,instruction='把杯子放到盘子�
   const canvas=el('canvas','stage-canvas patch-canvas');canvas.tabIndex=0;canvas.setAttribute('aria-label',content.title);surface.append(canvas);
   const ctx=canvas.getContext('2d'),source=cameraPicture(),text=words(instruction),listeners=new Set();
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
-  let n=4,selected=-1,running=false,clock=0,frame=0,previous=0,width=1,height=1,disposed=false,colors=[],layout;
+  let n=4,selected=-1,running=false,clock=0,frame=0,previous=0,width=1,height=1,disposed=false,colors=[],vectors=[],layout,startedAt=0;
   let transition=0;
   surface.dataset.state='idle';
   function invalidate(){if(!disposed&&!document.hidden&&!frame)frame=requestAnimationFrame(draw);}
@@ -73,13 +63,22 @@ export function mountLevel({surface,content,instruction='把杯子放到盘子�
     layout={image,queue,cells,texts};
     const pixels=source.getContext('2d').getImageData(0,0,source.width,source.height).data;
     // Average every pixel in each patch, in row-major order (no learnt encoder implied).
+    vectors=[];
     colors=Array.from({length:count},(_,i)=>{
       let r=0,g=0,b=0,num=0;
       for(let y=Math.floor(Math.floor(i/n)*source.height/n);y<Math.floor((Math.floor(i/n)+1)*source.height/n);y++)
         for(let x=Math.floor(i%n*source.width/n);x<Math.floor((i%n+1)*source.width/n);x++){
           const p=(y*source.width+x)*4;r+=pixels[p];g+=pixels[p+1];b+=pixels[p+2];num++;
         }
-      return `rgb(${Math.round(r/num)},${Math.round(g/num)},${Math.round(b/num)})`;
+      const avg=[r/num,g/num,b/num],grey=avg[0]*.2126+avg[1]*.7152+avg[2]*.0722;
+      const tinted=avg.map(c=>Math.round(Math.max(0,Math.min(255,grey+(c-grey)*1.65))*.82));
+      vectors.push(Array.from({length:5},(_,j)=>{
+        const sx=Math.min(source.width-1,Math.floor((i%n+(j+.5)/5)*source.width/n));
+        const sy=Math.min(source.height-1,Math.floor((Math.floor(i/n)+(.25+.125*j))*source.height/n));
+        const offset=(sy*source.width+sx)*4;
+        return (.2126*pixels[offset]+.7152*pixels[offset+1]+.0722*pixels[offset+2])/255;
+      }));
+      return `rgb(${tinted.join(',')})`;
     });
     const readout=document.querySelector('[data-readout="count"]');if(readout)readout.value=String(count+text.length);
     surface.dataset.tokens=String(count+text.length);surface.dataset.grid=String(n);invalidate();
@@ -87,8 +86,8 @@ export function mountLevel({surface,content,instruction='把杯子放到盘子�
   function timing(i){return i/(n*n)*1.55;}
   function draw(now){
     frame=0;if(disposed||document.hidden)return;
-    const dt=previous?Math.min(.05,(now-previous)/1000):0;previous=now;
-    if(running)clock+=dt;
+    const dt=previous?(now-previous)/1000:0;previous=now;
+    if(running)clock=(now-startedAt)/1000;
     const ratio=Math.min(devicePixelRatio||1,2);ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,width,height);
     const readout=document.querySelector('[data-readout="count"]');if(readout)readout.value=String(n*n+text.length);
     const {image,cells,texts}=layout,patch=image.width/n;
@@ -97,11 +96,18 @@ export function mountLevel({surface,content,instruction='把杯子放到盘子�
     for(let i=0;i<=n;i++){ctx.beginPath();ctx.moveTo(image.x+i*patch,image.y);ctx.lineTo(image.x+i*patch,image.y+image.height);ctx.moveTo(image.x,image.y+i*patch);ctx.lineTo(image.x+image.width,image.y+i*patch);ctx.stroke();}
     for(let i=0;i<cells.length;i++){
       ctx.globalAlpha=running&&clock<timing(i)+.38?.2:1;
-      miniVector(ctx,cells[i],colors[i],i,i===selected);
+      miniVector(ctx,cells[i],colors[i],i,false,vectors[i]);
     }
     ctx.globalAlpha=1;
-    if(selected>=0){ctx.strokeStyle='#1aa3a1';ctx.fillStyle='#1aa3a125';ctx.lineWidth=3;
-      const x=image.x+selected%n*patch,y=image.y+Math.floor(selected/n)*patch;ctx.fillRect(x,y,patch,patch);ctx.strokeRect(x+1.5,y+1.5,patch-3,patch-3);}
+    if(selected>=0){
+      const x=image.x+selected%n*patch,y=image.y+Math.floor(selected/n)*patch,r=cells[selected];
+      ctx.strokeStyle='#126d70';ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.beginPath();
+      ctx.moveTo(x+patch,y+patch/2);ctx.lineTo(r.x+r.width/2,r.y+r.height/2);ctx.stroke();ctx.setLineDash([]);
+      ctx.strokeStyle='#145e64';ctx.fillStyle='#1aa3a125';ctx.lineWidth=4;
+      ctx.fillRect(x,y,patch,patch);ctx.strokeRect(x+2,y+2,patch-4,patch-4);
+      const grow=r.width*.12;
+      miniVector(ctx,{x:r.x-grow,y:r.y-grow,width:r.width+2*grow,height:r.height+2*grow},colors[selected],selected,true,vectors[selected]);
+    }
     for(let i=0;i<texts.length;i++){
       const r=texts[i],arrival=1.95+i*.07;
       ctx.globalAlpha=running?Math.max(.15,Math.min(1,(clock-arrival)/.14)):1;
@@ -127,19 +133,20 @@ export function mountLevel({surface,content,instruction='把杯子放到盘子�
   function pick(e){
     const r=canvas.getBoundingClientRect(),x=e.clientX-r.x,y=e.clientY-r.y,{image,cells}=layout;
     if(x>=image.x&&x<image.x+image.width&&y>=image.y&&y<image.y+image.height)selected=Math.floor((y-image.y)/image.height*n)*n+Math.floor((x-image.x)/image.width*n);
-    else {const index=cells.findIndex(r=>x>=r.x&&x<=r.x+r.width&&y>=r.y&&y<=r.y+r.height);if(index>=0)selected=index;}
+    else {const index=cells.findIndex(r=>x>=r.x&&x<=r.x+r.width&&y>=r.y&&y<=r.y+r.height);selected=index;}
     invalidate();
   }
   function key(e){if(!['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();selected=Math.max(0,Math.min(n*n-1,selected+({ArrowRight:1,ArrowLeft:-1,ArrowUp:-n,ArrowDown:n}[e.key])));invalidate();}
   function visibility(){cancelAnimationFrame(frame);frame=0;previous=0;if(!document.hidden)invalidate();}
-  canvas.addEventListener('pointermove',pick);canvas.addEventListener('pointerdown',pick);canvas.addEventListener('keydown',key);document.addEventListener('visibilitychange',visibility);
-  const observer=new ResizeObserver(resize);observer.observe(surface);resize();
+  const leave=()=>{selected=-1;invalidate();};
+  canvas.addEventListener('pointerleave',leave);canvas.addEventListener('pointermove',pick);canvas.addEventListener('pointerdown',pick);canvas.addEventListener('keydown',key);document.addEventListener('visibilitychange',visibility);
+  const observer=new ResizeObserver(resize);observer.observe(surface);resize();pictureListeners.add(rearrange);
   return {
     onControl(id,value){if(running)return;if(id==='patch'){n={大:4,中:8,小:14}[value]||4;selected=-1;surface.dataset.state='idle';transition=.18;if(!reduced.matches)canvas.animate([{opacity:.6},{opacity:1}],{duration:180});rearrange();}
-      if(id==='run'){running=true;clock=0;previous=0;surface.dataset.state='running';onBusy(true);invalidate();}},
+      if(id==='run'){running=true;clock=0;previous=0;startedAt=performance.now();surface.dataset.state='running';onBusy(true);invalidate();}},
     getAnchors(){const {image,queue,texts}=layout;return {image:{x:image.x+image.width*.2,y:image.y+image.height*.18},grid:{x:image.x+image.width/n,y:image.y+image.height*.55},tokens:{x:queue.x+queue.width*.5,y:queue.y+queue.height*.45},text_tokens:{x:texts[2].x,y:texts[2].y+12}};},
     getAvoidRects(){return [layout.image,{...layout.queue,height:layout.queue.height+5}];},
     onFrame(fn){listeners.add(fn);return ()=>listeners.delete(fn);},
-    dispose(){disposed=true;cancelAnimationFrame(frame);observer.disconnect();listeners.clear();document.removeEventListener('visibilitychange',visibility);canvas.remove();},
+    dispose(){disposed=true;cancelAnimationFrame(frame);observer.disconnect();pictureListeners.delete(rearrange);listeners.clear();document.removeEventListener('visibilitychange',visibility);canvas.remove();},
   };
 }

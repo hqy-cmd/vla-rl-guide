@@ -3,7 +3,7 @@ import {
   DataTexture, DoubleSide, Float32BufferAttribute, Group, LineBasicMaterial,
   LineSegments, Mesh, MeshBasicMaterial, MeshToonMaterial, NearestFilter,
   PerspectiveCamera, PlaneGeometry, RGBAFormat, RingGeometry, SphereGeometry,
-  TorusGeometry, Vector3,
+  TorusGeometry, Vector3, Sprite, SpriteMaterial, SRGBColorSpace,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
@@ -201,22 +201,36 @@ export function createCloth(kit) {
   return root;
 }
 
+// Billboard circles retain their CSS-pixel diameter as the stage/camera changes.
+export function createDot(color = colors.teal, size = 11, hollow = false, opacity = 1) {
+  const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.beginPath(); ctx.arc(32, 32, 28, 0, Math.PI * 2);
+  ctx.fillStyle = hollow ? '#ffffff' : color; ctx.fill();
+  ctx.strokeStyle = colors.outline; ctx.lineWidth = 4; ctx.stroke();
+  if (hollow) { ctx.beginPath(); ctx.arc(32, 32, 23, 0, Math.PI * 2); ctx.strokeStyle = color; ctx.lineWidth = 8; ctx.stroke(); }
+  const map = new CanvasTexture(canvas); map.colorSpace = SRGBColorSpace;
+  const node = new Sprite(new SpriteMaterial({map, transparent: true, opacity,
+    depthTest: false, depthWrite: false}));
+  node.renderOrder = 12; node.userData.pixelSize = size * 64 / 60; node.userData.hollow = hollow;
+  // A sensible world size is also available to thumbnail renderers.
+  node.scale.setScalar(.16); return node;
+}
+
 // Reusable ten-point chunk: first four solid, remaining six hollow; no allocations per frame.
 export function createTrajectory(kit, count = 10, execute = 4) {
   const root = new Group();
   const points = Array.from({length: count}, (_, i) => {
-    const solid = i < execute;
-    const mesh = new Mesh(solid ? new SphereGeometry(.045, 12, 8) : new TorusGeometry(.058, .013, 6, 18),
-      new MeshBasicMaterial({color: colors.teal, transparent: true, opacity: 1, depthTest: false}));
-    mesh.renderOrder = 6; root.add(mesh); return mesh;
+    const mesh = createDot(colors.teal, count === 10 ? 11 : 7, i >= execute);
+    root.add(mesh); return mesh;
   });
   const trail = Array.from({length: 96}, () => {
-    const mesh = new Mesh(new SphereGeometry(.021, 8, 6), new MeshBasicMaterial({color: '#83bbb1', transparent: true, opacity: .55}));
+    const mesh = createDot(colors.teal, 6.5, false, .48);
     mesh.visible = false; root.add(mesh); return mesh;
   });
   let used = 0;
   return { root, points, trail, mark(position) {
-    const node = trail[used++ % trail.length]; node.position.copy(position); node.visible = true;
+    const node = trail[used++ % trail.length]; node.position.copy(position).add(v(0,.055,0)); node.visible = true;
   }, reset() { used = 0; trail.forEach(p => p.visible = false); } };
 }
 
