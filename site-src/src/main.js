@@ -353,12 +353,12 @@ const router = createRouter((summary) => {
   current = levels.get(summary.id);
   activeTab = "overview";
   document.title = `${current.title} · ${site.title}`;
-  stageIndex.textContent = `${String(current.id).padStart(2, "0")} / ${String(total).padStart(2, "0")}`;
+  stageIndex.textContent = `${current.id}/${total}`;
   stage.mount(current.id, stageHost);
   removeCallouts = mountCallouts(current, stageHost, stage);
   renderInfo();
   renderControls(current, controls);
-  coursePosition.textContent = `${String(current.id).padStart(2, "0")} / ${String(site.levels.length).padStart(2, "0")}`;
+  coursePosition.textContent = stageIndex.textContent;
   for (const [id, card] of cards) {
     if (id === current.id) card.setAttribute("aria-current", "step");
     else card.removeAttribute("aria-current");
